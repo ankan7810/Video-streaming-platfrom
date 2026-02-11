@@ -2,6 +2,8 @@ import express from 'express';
 import dotenv from 'dotenv';
 import { rateLimit } from 'express-rate-limit'
 import helmet from 'helmet';
+import connectdb from './Config/Db.js';
+import cookieParser from 'cookie-parser';
 
 dotenv.config({
     path:'./.env'
@@ -15,7 +17,14 @@ const limiter = rateLimit({
 	message: 'Too many requests from this IP, please try again after 5 minutes',
 })
 
+
+
+
+
+connectdb();
 app.use(helmet());
+app.use(express.urlencoded({extended: false}));
+app.use(cookieParser());
 app.use(limiter);
 app.use(express.json());
 
