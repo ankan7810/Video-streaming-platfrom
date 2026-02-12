@@ -1,6 +1,7 @@
 import User from "../Models/User.Models";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import uploadOnCloudinary from "../Middlewares/Cloudinary";
 
 export const registerUser = async(req, res) => {
     try {
@@ -31,12 +32,15 @@ export const registerUser = async(req, res) => {
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
+        if(req.file){
+          let image = await uploadOnCloudinary(req.file.path);
+        }
         const newUser = new User.create({
             username,
             email,
             password: hashedPassword,
             name,
-            profileimage
+            profileimage:image
         });
 
         const token = await genToken(newUser._id);
