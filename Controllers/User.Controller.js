@@ -7,7 +7,6 @@ export const getcurrentUser = async(req, res) => {
         if(!user){
             return res.status(404).json({message: "User not found"});
         }
-        // return res.status(200).json({message:"Current user fetched successfully", user});
         return res.status(200).json({message:"Current user fetched successfully", user});
     
     } catch (error) {
@@ -29,9 +28,7 @@ export const updateAccountDetails = async (req, res) => {
             return res.status(404).json({ message: "User not found" });
         }
 
-        //  Delete old image from Cloudinary (if exists)
         if (existingUser.profileimage) {
-            //why split because we need to get the public id of the image which is the last part of the url after the last "/"
             const urlParts = existingUser.profileimage.split("/");
             const fileName = urlParts[urlParts.length - 1];
             const publicId = fileName.split(".")[0]; // remove extension

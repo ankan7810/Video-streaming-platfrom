@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import connectdb from './Config/Db.js';
 import cookieParser from 'cookie-parser';
 import authrouter from './Routes/Auth.routes.js';
+import videorouter from './Routes/Video.Routes.js';
 
 dotenv.config({
     path:'./.env'
@@ -25,6 +26,7 @@ app.use(express.json());
 app.use(express.urlencoded({extended: true}));
 app.use(cookieParser());
 app.use("/api/v1/users", authrouter);
+app.use("/api/v1/videos", videorouter);
 
 app.listen(port,()=>{
     console.log(`Server is running on port ${port}`);

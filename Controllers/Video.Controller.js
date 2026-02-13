@@ -1,5 +1,5 @@
 import mongoose, {isValidObjectId} from "mongoose"
-import {Video} from "../models/video.model.js"
+import {Video} from "../Models/Video.Models.js"
 import { v2 as cloudinary } from "cloudinary";
 import uploadOnCloudinary from "../Middlewares/Cloudinary.js";
 import fs from 'fs'
@@ -7,11 +7,19 @@ import { exec } from 'child_process'
 import path from 'path'
 import { v4 as uuid } from 'uuid'
 
+
 export const uploadvideo = async (req, res) => {
     try {
+        const { title, description,isPublished  } = req.body;  
+
+        if (!title || !description) {         
+            return res.status(400).json({ message: "Title and description are required" });
+        }
+
         if (!req.file) {
             return res.status(400).json({ message: "Video not sent!" });
         }
+        const publishStatus = isPublished === "false" ? false : true
 
         const videoId = uuid();
         const inputPath = req.file.path;
@@ -28,101 +36,75 @@ export const uploadvideo = async (req, res) => {
 
         const runCommand = (cmd) =>
             new Promise((resolve, reject) => {
-                exec(cmd, (error) => {
+                exec(cmd, (error, stdout) => {
                     if (error) reject(error);
-                    else resolve();
+                    else resolve(stdout);
                 });
             });
 
-        //  Extract duration
+        // duration
         const durationCommand = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${inputPath}"`;
-        const duration = await new Promise((resolve, reject) => {
-            exec(durationCommand, (err, stdout) => {
-                if (err) reject(err);
-                else resolve(Math.floor(parseFloat(stdout)));
-            });
-        });
+        const durationOutput = await runCommand(durationCommand);
+        const parsedDuration = parseFloat(durationOutput);
+        const duration = isNaN(parsedDuration) ? 0 : Math.floor(parsedDuration);
 
-        //  Generate thumbnail
+        // thumbnail
         const thumbnailPath = path.join(outputRoot, "thumbnail.jpg");
         await runCommand(
             `ffmpeg -i "${inputPath}" -ss 00:00:02 -vframes 1 "${thumbnailPath}"`
         );
 
-        //  Transcode sequentially
         for (const r of resolutions) {
             const outputDir = path.join(outputRoot, r.name);
             fs.mkdirSync(outputDir, { recursive: true });
 
-            const command = `
-                ffmpeg -i "${inputPath}"
-                -vf "scale=w=${r.width}:h=${r.height}"
-                -c:v libx264 -b:v ${r.bitrate}
-                -c:a aac -b:a 128k
-                -f hls -hls_time 10 -hls_playlist_type vod
-                -hls_segment_filename "${outputDir}/segment%03d.ts"
-                "${outputDir}/index.m3u8"
-            `;
+            const command = `ffmpeg -i "${inputPath}" -vf scale=${r.width}:${r.height} -c:v libx264 -b:v ${r.bitrate} -c:a aac -b:a 128k -f hls -hls_time 10 -hls_playlist_type vod -hls_segment_filename "${outputDir}/segment%03d.ts" "${outputDir}/index.m3u8"`;
 
             await runCommand(command);
         }
 
-        //  Create master playlist
         const masterPlaylistPath = path.join(outputRoot, "master.m3u8");
         let masterContent = "#EXTM3U\n";
 
         for (const r of resolutions) {
-            masterContent += `#EXT-X-STREAM-INF:BANDWIDTH=${parseInt(
-                r.bitrate
-            ) * 1000},RESOLUTION=${r.width}x${r.height}\n`;
+            masterContent += `#EXT-X-STREAM-INF:BANDWIDTH=${parseInt(r.bitrate) * 1000},RESOLUTION=${r.width}x${r.height}\n`;
             masterContent += `${r.name}/index.m3u8\n`;
         }
 
         fs.writeFileSync(masterPlaylistPath, masterContent);
 
-        //  Upload thumbnail
-        const uploadedThumbnail = await cloudinary.uploader.upload(
-            thumbnailPath,
-            {
-                folder: `videos/${videoId}`,
-            }
-        );
+        const uploadedThumbnail = await uploadOnCloudinary(thumbnailPath);
+        const uploadedMaster = await uploadOnCloudinary(masterPlaylistPath);
 
-        //  Upload master playlist
-        const uploadedMaster = await cloudinary.uploader.upload(
-            masterPlaylistPath,
-            {
-                resource_type: "raw",
-                folder: `videos/${videoId}`,
-            }
-        );
-
-        //   Upload all .ts segments and playlists
         for (const r of resolutions) {
             const dir = path.join(outputRoot, r.name);
             const files = fs.readdirSync(dir);
 
             for (const file of files) {
-                await cloudinary.uploader.upload(
-                    path.join(dir, file),
-                    {
-                        resource_type: "raw",
-                        folder: `videos/${videoId}/${r.name}`,
-                    }
-                );
+                await uploadOnCloudinary(path.join(dir, file));
             }
         }
-
-        //  Cleanup local files
-        fs.rmSync(outputRoot, { recursive: true, force: true });
-        fs.unlinkSync(inputPath);
-
-        return res.status(200).json({
-            success: true,
-            videoId,
+        const newVideo = await Video.create({
+            title,
+            description,
+            videoFile: uploadedMaster,
+            thumbnail: uploadedThumbnail,
             duration,
-            hlsUrl: uploadedMaster.secure_url,
-            thumbnail: uploadedThumbnail.secure_url
+            owner: req.user?._id,
+            isPublished: publishStatus 
+        });
+
+        if (fs.existsSync(outputRoot)) {
+            fs.rmSync(outputRoot, { recursive: true, force: true });
+        }
+
+        if (fs.existsSync(inputPath)) {
+            fs.unlinkSync(inputPath);
+        }
+
+        return res.status(201).json({
+            success: true,
+            video: newVideo
         });
 
     } catch (error) {
@@ -161,29 +143,35 @@ const getAllVideos = async (req, res) => {
         };
 
         const aggregate = Video.aggregate([
-            { $match: matchStage },
+      { $match: matchStage },
 
-            {
-                $lookup: {
-                    from: "users",
-                    let: { ownerId: "$owner" },
-                    pipeline: [
-                        { $match: { $expr: { $eq: ["$_id", "$$ownerId"] } } },
-                        {
-                            $project: {
-                                username: 1,
-                                name: 1,
-                                profileimage: 1
-                            }
-                        }
-                    ],
-                    as: "owner"
+    {
+        $lookup: {
+            from: "users",
+            let: { ownerId: "$owner" },
+            pipeline: [
+                { $match: { $expr: { $eq: ["$_id", "$$ownerId"] } } },
+                {
+                    $project: {
+                        username: 1,
+                        name: 1,
+                        profileimage: 1
+                    }
                 }
-            },
-            { $unwind: "$owner" },
+            ],
+            as: "owner"
+        }
+    },
+    { 
+        $unwind: { 
+            path: "$owner", 
+            preserveNullAndEmptyArrays: true 
+        } 
+    },
 
-            { $sort: sortStage }
-        ]);
+    { $sort: sortStage }
+]);
+
 
         const options = {
             page: pageNumber,
@@ -210,56 +198,10 @@ const getAllVideos = async (req, res) => {
     }
 }
 
-const publishAVideo = async (req, res) => {
-    try {
-        const { title, description } = req.body;
-
-        if (!title || !description) {
-            return res.status(400).json({ message: "Title and description are required" });
-        }
-
-        const videoLocalPath = req.files?.videoFile?.[0]?.path;
-
-        if (!videoLocalPath) {
-            return res.status(400).json({ message: "Video file is required" });
-        }
-
-        //  Transcode + Upload to Cloudinary
-        const result = await uploadvideo(req, res);
-
-        if (!result || !result.hlsUrl) {
-            return res.status(400).json({ message: "Video processing failed" });
-        }
-
-        const newVideo = await Video.create({
-            videoFile: result.hlsUrl,
-            thumbnail: result.thumbnail,
-            title,
-            description,
-            duration: result.duration,
-            owner: req.user._id
-        });
-
-        return res.status(201).json({
-            success: true,
-            message: "Video published successfully",
-            video: newVideo
-        });
-
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: "Failed to publish video",
-            error: error.message
-        });
-    }
-};
-
-
 
 const getVideoById = async (req, res) => {
-     try {
-        const { videoId } = req.params;
+    try {
+        const videoId = req.params.id;  
 
         if (!mongoose.Types.ObjectId.isValid(videoId)) {
             return res.status(400).json({ message: "Invalid video ID" });
@@ -268,8 +210,7 @@ const getVideoById = async (req, res) => {
         const video = await Video.aggregate([
             {
                 $match: {
-                    _id: new mongoose.Types.ObjectId(videoId),
-                    isPublished: true
+                    _id: new mongoose.Types.ObjectId(videoId)  
                 }
             },
             {
@@ -289,7 +230,12 @@ const getVideoById = async (req, res) => {
                     as: "owner"
                 }
             },
-            { $unwind: "$owner" }
+            { 
+                $unwind: { 
+                    path: "$owner", 
+                    preserveNullAndEmptyArrays: true   
+                } 
+            }
         ]);
 
         if (!video.length) {
@@ -310,12 +256,15 @@ const getVideoById = async (req, res) => {
             error: error.message
         });
     }
-}
+};
+
+
 
 const updateVideo = async (req, res) => {
     try {
-        const { videoId } = req.params;
-        const { title, description } = req.body;
+        const videoId = req.params.id;
+        
+        const { title, description, isPublished } = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(videoId)) {
             return res.status(400).json({ message: "Invalid video ID" });
@@ -326,7 +275,7 @@ const updateVideo = async (req, res) => {
             return res.status(404).json({ message: "Video not found" });
         }
 
-        if (video.owner.toString() !== req.user._id) {
+        if (video.owner.toString() !== req.user._id.toString()) {
             return res.status(403).json({ message: "Unauthorized" });
         }
 
@@ -334,17 +283,14 @@ const updateVideo = async (req, res) => {
 
         const thumbnailLocalPath = req.file?.path;
 
-        // 🔹 If new thumbnail uploaded
         if (thumbnailLocalPath) {
 
-            // delete old thumbnail from cloudinary
             if (video.thumbnail) {
                 const parts = video.thumbnail.split("/");
                 const publicId = parts.slice(parts.indexOf("videos")).join("/").split(".")[0];
                 await cloudinary.uploader.destroy(publicId);
             }
 
-            // upload new thumbnail
             const uploadedThumbnail = await uploadOnCloudinary(thumbnailLocalPath);
             if (!uploadedThumbnail) {
                 return res.status(400).json({ message: "Thumbnail upload failed" });
@@ -353,13 +299,23 @@ const updateVideo = async (req, res) => {
             updatedThumbnail = uploadedThumbnail;
         }
 
+        let publishStatus = video.isPublished;
+        if (typeof isPublished !== "undefined") {
+            publishStatus = isPublished === "true";
+        }
+        
+        if (!title && !description && typeof isPublished === "undefined" && !thumbnailLocalPath) {
+            return res.status(400).json({ message: "No fields provided to update" });
+        }
+
         const updatedVideo = await Video.findByIdAndUpdate(
             videoId,
             {
                 $set: {
                     title: title || video.title,
                     description: description || video.description,
-                    thumbnail: updatedThumbnail
+                    thumbnail: updatedThumbnail,
+                    isPublished: publishStatus
                 }
             },
             { new: true }
@@ -384,26 +340,29 @@ const updateVideo = async (req, res) => {
 
 const deleteVideo = async (req, res) => {
     try {
-        const { videoId } = req.params;
+        const videoId = req.params.id;
 
         if (!mongoose.Types.ObjectId.isValid(videoId)) {
             return res.status(400).json({ message: "Invalid video ID" });
         }
 
         const video = await Video.findById(videoId);
+
         if (!video) {
             return res.status(404).json({ message: "Video not found" });
         }
 
-        if (video.owner.toString() !== req.user._id) {
+        // ✅ Safe owner check
+        if (!video.owner) {
+            return res.status(400).json({
+                message: "Video has no owner. It was created without authentication."
+            });
+        }
+
+        if (video.owner.toString() !== req.user._id.toString()) {
             return res.status(403).json({ message: "Unauthorized" });
         }
 
-        // 🔹 delete entire folder from Cloudinary
-        await cloudinary.api.delete_resources_by_prefix(`videos/${videoId}`);
-        await cloudinary.api.delete_folder(`videos/${videoId}`);
-
-        // 🔹 delete from database
         await Video.findByIdAndDelete(videoId);
 
         return res.status(200).json({
@@ -421,46 +380,9 @@ const deleteVideo = async (req, res) => {
 };
 
 
-const togglePublishStatus = async (req, res) => {
-     try {
-        const { videoId } = req.params;
-
-        if (!mongoose.Types.ObjectId.isValid(videoId)) {
-            return res.status(400).json({ message: "Invalid video ID" });
-        }
-
-        const video = await Video.findById(videoId);
-        if (!video) {
-            return res.status(404).json({ message: "Video not found" });
-        }
-
-        if (video.owner.toString() !== req.user._id) {
-            return res.status(403).json({ message: "Unauthorized to modify this video" });
-        }
-
-        video.isPublished = !video.isPublished;
-        await video.save();
-
-        return res.status(200).json({
-            success: true,
-            message: `Video ${video.isPublished ? "published" : "unpublished"} successfully`,
-            isPublished: video.isPublished
-        });
-
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: "Failed to toggle publish status",
-            error: error.message
-        });
-    }
-}
-
 export {
     getAllVideos,
-    publishAVideo,
     getVideoById,
     updateVideo,
     deleteVideo,
-    togglePublishStatus
 }
