@@ -1,5 +1,7 @@
-import User from "../Models/User.Models"
+import User from "../Models/User.Models.js"
 import { v2 as cloudinary } from "cloudinary";
+import mongoose, {isValidObjectId} from "mongoose"
+import uploadOnCloudinary from "../Middlewares/Cloudinary.js";
 
 export const getcurrentUser = async(req, res) => {
     try {
@@ -14,41 +16,58 @@ export const getcurrentUser = async(req, res) => {
     }
 }
 
+
+
 export const updateAccountDetails = async (req, res) => {
     try {
-        const { username, email } = req.body;
-        const profileimageLocalPath = req.file?.path;
+        const { username, email } = req.body || {};
+        const profileImageLocalPath = req.file?.path;
 
-        if (!profileimageLocalPath) {
-            return res.status(400).json({ message: "Profile image is required" });
+        if (!username || !email) {
+            return res.status(400).json({
+                message: "Username and email are required"
+            });
         }
 
-        const existingUser = await User.findById(req.user._id);
+        if (!profileImageLocalPath) {
+            return res.status(400).json({
+                message: "Profile image is required"
+            });
+        }
+
+        const existingUser = await User.findById(req.user?._id);
         if (!existingUser) {
-            return res.status(404).json({ message: "User not found" });
+            return res.status(404).json({
+                message: "User not found"
+            });
         }
+        
+        if (existingUser.profileImage) {
+            try {
+                const urlParts = existingUser.profileImage.split("/");
+                const fileName = urlParts[urlParts.length - 1];
+                const publicId = fileName.split(".")[0];
 
-        if (existingUser.profileimage) {
-            const urlParts = existingUser.profileimage.split("/");
-            const fileName = urlParts[urlParts.length - 1];
-            const publicId = fileName.split(".")[0]; // remove extension
-
-            await cloudinary.uploader.destroy(publicId);
+                await cloudinary.uploader.destroy(publicId);
+            } catch (cloudError) {
+                console.error("Cloudinary deletion failed:", cloudError.message);
+            }
         }
+        const uploadedImage = await uploadOnCloudinary(profileImageLocalPath);
 
-        const profileImage = await uploadOnCloudinary(profileimageLocalPath);
-
-        if (!profileImage?.url) {
-            return res.status(400).json({ message: "Error while uploading profile image" });
+        if (!uploadedImage) {
+            return res.status(400).json({
+                message: "Error while uploading profile image"
+            });
         }
 
         const updatedUser = await User.findByIdAndUpdate(
             req.user._id,
             {
                 $set: {
-                    username,
+                    username: username.toLowerCase(),
                     email,
-                    profileImage: profileImage.url
+                    profileImage: uploadedImage
                 }
             },
             { new: true }
@@ -66,6 +85,7 @@ export const updateAccountDetails = async (req, res) => {
         });
     }
 };
+
 
 
 export const getUserChannelProfile = async(req, res) => {
@@ -141,6 +161,7 @@ export const getUserChannelProfile = async(req, res) => {
         return res.status(500).json({message: "Error fetching user channel profile", error: error.message});
     }
 }
+
 
 export const getWatchHistory = async(req, res) => {
     const user = await User.aggregate([

@@ -48,7 +48,6 @@ export const uploadvideo = async (req, res) => {
         const parsedDuration = parseFloat(durationOutput);
         const duration = isNaN(parsedDuration) ? 0 : Math.floor(parsedDuration);
 
-        // thumbnail
         const thumbnailPath = path.join(outputRoot, "thumbnail.jpg");
         await runCommand(
             `ffmpeg -i "${inputPath}" -ss 00:00:02 -vframes 1 "${thumbnailPath}"`
@@ -90,10 +89,10 @@ export const uploadvideo = async (req, res) => {
             videoFile: uploadedMaster,
             thumbnail: uploadedThumbnail,
             duration,
-            owner: req.user?._id,
+            owner: req.user._id,
             isPublished: publishStatus 
         });
-
+        
         if (fs.existsSync(outputRoot)) {
             fs.rmSync(outputRoot, { recursive: true, force: true });
         }
@@ -259,7 +258,6 @@ const getVideoById = async (req, res) => {
 };
 
 
-
 const updateVideo = async (req, res) => {
     try {
         const videoId = req.params.id;
@@ -273,6 +271,12 @@ const updateVideo = async (req, res) => {
         const video = await Video.findById(videoId);
         if (!video) {
             return res.status(404).json({ message: "Video not found" });
+        }
+        console.log(video.owner);
+        console.log("REQ USER:", req.user);
+
+        if (!video.owner) {
+           return res.status(400).json({ message: "Video owner not found" });
         }
 
         if (video.owner.toString() !== req.user._id.toString()) {

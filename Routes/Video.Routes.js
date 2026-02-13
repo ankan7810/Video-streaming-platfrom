@@ -10,5 +10,4 @@ videorouter.get("/:id", isAuth,getVideoById)
 videorouter.put("/update/:id",isAuth,upload.single("thumbnail"),updateVideo);
 videorouter.post("/delete/:id", isAuth,deleteVideo)  
 
-
 export default videorouter;

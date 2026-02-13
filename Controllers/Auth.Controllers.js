@@ -69,7 +69,7 @@ export const registerUser = async (req, res) => {
       secure: false,
       sameSite: "Strict",
     });
-
+  
     res.status(201).json({
       message: "User registered successfully",
       user: newUser,
