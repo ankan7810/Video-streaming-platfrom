@@ -8,7 +8,6 @@ videorouter.post("/uploads",isAuth,upload.single("videoFile"),uploadvideo);
 videorouter.get("/all", isAuth,getAllVideos )
 videorouter.get("/:id", isAuth,getVideoById)
 videorouter.put("/update/:id",isAuth,upload.single("thumbnail"),updateVideo);
-// videorouter.post("/toggle-publish", togglePublishStatus)
 videorouter.post("/delete/:id", isAuth,deleteVideo)  
 
 

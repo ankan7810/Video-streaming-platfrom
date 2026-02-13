@@ -351,8 +351,7 @@ const deleteVideo = async (req, res) => {
         if (!video) {
             return res.status(404).json({ message: "Video not found" });
         }
-
-        // ✅ Safe owner check
+        
         if (!video.owner) {
             return res.status(400).json({
                 message: "Video has no owner. It was created without authentication."
