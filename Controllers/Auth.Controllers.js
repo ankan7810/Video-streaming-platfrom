@@ -1,63 +1,87 @@
-import User from "../Models/User.Models";
+import User from "../Models/User.Models.js";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
-import uploadOnCloudinary from "../Middlewares/Cloudinary";
+import uploadOnCloudinary from "../Middlewares/Cloudinary.js";
+import { genToken } from "../Config/Token.js";
+import { sendOtpMail, sendRegistertationMail } from "../Config/Mail.js";
 
-export const registerUser = async(req, res) => {
-    try {
-        const {username, email, password,name,profileimage} = req.body;
-        if (!username || !email || !password || !name || !profileimage) {
-            return res.status(400).json({ message: "All fields are required" });
-        }
-        if (!email.includes("@gmail.com")) {
-        return res.status(400).json({ message: "invalid email format" });
-        }
-    
-        const existingUser=await User.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ message: "User already exists" });
-        }
-        const existingUsername=await User.findOne({ username });
-        if (existingUsername) {
-            return res.status(400).json({ message: "Username already exists" });
-        }
-          if (!passwordRegex.test(password)) {
-          return res.status(400).json({
-            message:
-              "Password must include letters, numbers, and special characters.",
-          });
-        }
-        if(password.length<6){
-            return res.status(400).json({ message: "Password must be at least 6 characters" });
-        }
+export const registerUser = async (req, res) => {
+  try {
+    const { username, email, password, name } = req.body;
 
-        const hashedPassword = await bcrypt.hash(password, 10);
-        if(req.file){
-          let image = await uploadOnCloudinary(req.file.path);
-        }
-        const newUser = new User.create({
-            username,
-            email,
-            password: hashedPassword,
-            name,
-            profileimage:image
-        });
-
-        const token = await genToken(newUser._id);
-        const nameuppercase = name.charAt(0).toUpperCase() + name.slice(1);
-        await sendRegistertationMail(email,nameuppercase);
-        res.cookie("token", token, {
-              httpOnly: true,
-              //maxage: is in milliseconds, here it's set to 10 years
-              maxAge: 15 * 24 * 60 * 60 * 1000,
-              secure: false,
-              sameSite: "Strict",
-            });
-        res.status(201).json({ message: "User registered successfully" });
-    } catch (error) {
-        return res.status(500).json({ message: `Registration error: ${error}` });
+    if (!username || !email || !password || !name) {
+      return res.status(400).json({ message: "All fields are required" });
     }
-}
+
+    if (!email.includes("@gmail.com")) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    const existingUsername = await User.findOne({ username });
+    if (existingUsername) {
+      return res.status(400).json({ message: "Username already exists" });
+    }
+
+    // if (!passwordRegex.test(password)) {
+    //   return res.status(400).json({
+    //     message:
+    //       "Password must include letters, numbers, and special characters.",
+    //   });
+    // }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    if(!req.file) {
+      return res.status(400).json({
+      message: "Profile image is required",
+      });
+    }
+    const profileImageUrl = await uploadOnCloudinary(req.file.path);
+
+    const newUser = await User.create({
+      username,
+      email,
+      password: hashedPassword,
+      name,
+      profileimage: profileImageUrl,
+    });
+
+    const token = await genToken(newUser._id);
+
+    const nameuppercase =
+      name.charAt(0).toUpperCase() + name.slice(1);
+
+    await sendRegistertationMail(email, nameuppercase);
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      maxAge: 15 * 24 * 60 * 60 * 1000,
+      secure: false,
+      sameSite: "Strict",
+    });
+
+    res.status(201).json({
+      message: "User registered successfully",
+      user: newUser,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      message: `Registration error: ${error.message}`,
+    });
+  }
+};
+
 
 export const loginUser = async(req, res) => {
     try {
