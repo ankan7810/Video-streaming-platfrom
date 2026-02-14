@@ -1,6 +1,6 @@
 import User from "../Models/User.Models.js"
 import { v2 as cloudinary } from "cloudinary";
-import mongoose, {isValidObjectId} from "mongoose"
+import mongoose from "mongoose"
 import uploadOnCloudinary from "../Middlewares/Cloudinary.js";
 
 export const getcurrentUser = async(req, res) => {
@@ -15,7 +15,6 @@ export const getcurrentUser = async(req, res) => {
         return res.status(400).json({message: "Error fetching user data", error: error.message});
     }
 }
-
 
 
 export const updateAccountDetails = async (req, res) => {

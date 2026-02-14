@@ -12,6 +12,6 @@ import mongoose from "mongoose";
 }
 , {timestamps: true})
 
-const subscriptionModel = mongoose.model("Subscription", subscriptionSchema);
+const subscription = mongoose.model("Subscription", subscriptionSchema);
 
-export default subscriptionModel;
+export default subscription;

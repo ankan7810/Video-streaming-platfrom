@@ -11,4 +11,4 @@ const getChannelVideos = async (req, res) => {
 export {
     getChannelStats, 
     getChannelVideos
-    }
+}

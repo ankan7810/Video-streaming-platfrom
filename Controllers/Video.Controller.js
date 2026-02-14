@@ -382,6 +382,28 @@ const deleteVideo = async (req, res) => {
     }
 };
 
+export const searchvideos = async (req, res) => {
+   try {
+    const { query } = req.query;
+    const videos = await Video.find({
+          $or:[
+                {title:{$regex:query,$options:"i"}},
+                {description:{$regex:query,$options:"i"}},
+            ] 
+        });
+    return res.status(200).json({
+        success: true,
+        videos: videos
+    });
+} catch (error) {
+    return res.status(500).json({
+        success: false,
+        message: "Failed to fetch videos",
+        error: error.message
+    });
+}
+}
+
 
 export {
     getAllVideos,

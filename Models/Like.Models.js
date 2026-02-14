@@ -9,12 +9,13 @@ const LikeSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Comment"
     },
-    likedBy: {
+    likedBy: 
+        {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"
-    }
+        }
 }, {timestamps: true})
 
-const LikeModel = mongoose.model("Like", LikeSchema);
+const Like = mongoose.model("Like", LikeSchema);
 
-export default LikeModel;
+export default Like;

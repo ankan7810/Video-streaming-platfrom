@@ -7,6 +7,10 @@ import cookieParser from 'cookie-parser';
 import authrouter from './Routes/Auth.routes.js';
 import videorouter from './Routes/Video.Routes.js';
 import usserrouter from './Routes/User.Routes.js';
+import playlistrouter from './Routes/Playlist.Routes.js';
+import commentrouter from './Routes/Comment.Routes.js';
+import likerouter from './Routes/Like.Routes.js';
+import subscriptionrouter from './Routes/Subscription.Routes.js';
 
 dotenv.config({
     path:'./.env'
@@ -29,6 +33,10 @@ app.use(cookieParser());
 app.use("/api/v1/auth", authrouter);
 app.use("/api/v1/videos", videorouter);
 app.use("/api/v1/users", usserrouter);
+app.use("/api/v1/playlists", playlistrouter);
+app.use("/api/v1/likes", likerouter);
+app.use("/api/v1/comments", commentrouter);
+app.use("/api/v1/subscriptions", subscriptionrouter);
 
 app.listen(port,()=>{
     console.log(`Server is running on port ${port}`);
