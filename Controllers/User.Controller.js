@@ -3,6 +3,7 @@ import { v2 as cloudinary } from "cloudinary";
 import mongoose from "mongoose"
 import uploadOnCloudinary from "../Middlewares/Cloudinary.js";
 
+//purpose of this function is to get the current user.current user means the user who is logged in.
 export const getcurrentUser = async(req, res) => {
     try {
         const user = await User.findById(req.user._id).select("-password");
@@ -90,11 +91,9 @@ export const updateAccountDetails = async (req, res) => {
 export const getUserChannelProfile = async(req, res) => {
     try {
          const {username} = req.params
-
     if (!username?.trim()) {
         throw new ApiError(400, "username is missing")
     }
-
     const channel = await User.aggregate([
         {
             //$match is used to filter the documents in the collection based on the specified condition

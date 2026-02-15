@@ -4,8 +4,8 @@ import isAuth from "../Middlewares/isAuth.js";
 
 const subscriptionrouter = express.Router();
 
-subscriptionrouter.get("/togglesubscription/:id",isAuth,toggleSubscription)
-subscriptionrouter.get("/channelsubscribers/:id",isAuth,getUserChannelSubscribers)
-subscriptionrouter.get("/mysubscription/:id",isAuth,getSubscribedChannels)
+subscriptionrouter.post("/togglesubscription/:channelId/:subscriberId",isAuth,toggleSubscription)
+subscriptionrouter.get("/channelsubscribers/:channelId",isAuth,getUserChannelSubscribers)
+subscriptionrouter.get("/mysubscription/:subscriberId",isAuth,getSubscribedChannels)
 
 export default subscriptionrouter;

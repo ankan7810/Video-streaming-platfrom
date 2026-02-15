@@ -2,61 +2,108 @@ import mongoose, {isValidObjectId} from "mongoose"
 import User from "../Models/User.Models.js"
 import subscription from "../Models/Subscription.Models.js"
 
+
 export const toggleSubscription = async (req, res) => {
-try {
-    const {channelId, subscriberId} = req.params
-    const channel = await User.findById(channelId)
-    if(!channel){
-        return res.status(400).json({message:"channel not found"})
-    }
-    const subscriber = await User.findById(subscriberId)
-    if(!subscriber){
-        return res.status(400).json({message:"subscriber not found"})
-    }
-    const alreadySubscribed=await subscription.findOne({
-        subscriber:subscriberId,
-        channel:channelId
-    })
-    if(alreadySubscribed){
-        await subscription.findOneAndDelete(alreadySubscribed._id)
-        return res.status(200).json({message:"Unsubscribed successfully"})
-    }
-    await subscription.create({
-        subscriber:subscriberId,
-        channel:channelId
-    })
-    return res.status(200).json({message:"subscriber subscribed successfully"})
-} catch (error) {
-    return res.status(500).json({message:"internal server error"})
-}
+ try {
+        const { channelId } = req.params;
+        const subscriberId = req.user._id;
+        if (!isValidObjectId(channelId)) {
+            return res.status(400).json({ message: "Invalid channel id" });
+        }
+        // if (channelId === subscriberId.toString()) {
+        //     return res.status(400).json({ message: "You cannot subscribe to yourself" });
+        // }
+        const channelExists = await User.exists({ _id: channelId });
+        if (!channelExists) {
+            return res.status(404).json({ message: "Channel not found" });
+        }
+        const existing = await subscription.findOne({
+            subscriber: subscriberId,
+            channel: channelId
+        });
+        if (existing) {
+            await subscription.findByIdAndDelete(existing._id);
+
+            return res.status(200).json({
+                subscribed: false,
+                message: "Unsubscribed successfully"
+            });
+        }
+        await subscription.create({
+            subscriber: subscriberId,
+            channel: channelId
+        });
+        return res.status(200).json({
+            subscribed: true,
+            message: "Subscribed successfully"
+        });
+    } catch (error) {
+        console.error("Toggle Subscription Error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    } 
 }
 
-// controller to return subscriber list of a channel
+
 export const getUserChannelSubscribers = async (req, res) => {
     try {
-        const {channelId} = req.params
-        const channel = await User.findById(channelId)
-        if(!channel){
-            return res.status(400).json({message:"channel not found"})
-        }
-        const subscribers = await subscription.find({channel:channelId}).populate("subscriber","username email")
-        return res.status(200).json({subscribers})
-    } catch (error) {
-        return res.status(500).json({message:"internal server error"})
-    }           
-}
+        const { channelId } = req.params;
+        const { page = 1, limit = 10 } = req.query;
 
-// controller to return channel list to which user has subscribed
-export const getSubscribedChannels = async (req, res) => {
-    try {
-        const {subscriberId} = req.params
-        const subscriber = await User.findById(subscriberId)
-        if(!subscriber){
-            return res.status(400).json({message:"subscriber not found"})
+        if (!isValidObjectId(channelId)) {
+            return res.status(400).json({ message: "Invalid channel id" });
         }
-        const channels = await subscription.find({subscriber:subscriberId}).populate("channel","username email")
-        return res.status(200).json({channels})
+        const pageNumber = parseInt(page);
+        const limitNumber = parseInt(limit);
+        const skip = (pageNumber - 1) * limitNumber;
+        const channelExists = await User.exists({ _id: channelId });
+        if (!channelExists) {
+            return res.status(404).json({ message: "Channel not found" });
+        }
+        const subscribers = await subscription.find({ channel: channelId })
+            .populate("subscriber", "username email")
+            .skip(skip)
+            .limit(limitNumber)
+            //lean() used for convert to json
+            .lean();
+        const totalSubscribers = await subscription.countDocuments({
+            channel: channelId
+        });
+        return res.status(200).json({
+            totalSubscribers,
+            currentPage: pageNumber,
+            totalPages: Math.ceil(totalSubscribers / limitNumber),
+            subscribers
+        });
     } catch (error) {
-        return res.status(500).json({message:"internal server error"})
-    }   
+        console.error("Get Subscribers Error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+
+export const getSubscribedChannels = async (req, res) => {
+   try {
+        const subscriberId = req.user._id;
+        const { page = 1, limit = 10 } = req.query;
+        const pageNumber = parseInt(page);
+        const limitNumber = parseInt(limit);
+        const skip = (pageNumber - 1) * limitNumber;
+        const channels = await subscription.find({ subscriber: subscriberId })
+            .populate("channel", "username email")
+            .skip(skip)
+            .limit(limitNumber)
+            .lean();
+        const totalSubscriptions = await subscription.countDocuments({
+            subscriber: subscriberId
+        });
+        return res.status(200).json({
+            totalSubscriptions,
+            currentPage: pageNumber,
+            totalPages: Math.ceil(totalSubscriptions / limitNumber),
+            channels
+        });
+    } catch (error) {
+        console.error("Get Subscribed Channels Error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
 }
