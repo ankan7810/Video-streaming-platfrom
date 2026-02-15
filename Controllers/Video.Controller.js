@@ -247,7 +247,6 @@ const getVideoById = async (req, res) => {
             success: true,
             video: video[0]
         });
-
     } catch (error) {
         return res.status(500).json({
             success: false,
@@ -256,7 +255,6 @@ const getVideoById = async (req, res) => {
         });
     }
 };
-
 
 const updateVideo = async (req, res) => {
     try {
