@@ -19,8 +19,8 @@ const port=process.env.PORT || 4000;
 const app=express();
 
 const limiter = rateLimit({
-	windowMs: 5 * 60 * 1000, // it means 15 minutes which is 
-	limit: 10, // Limit each IP to 100 requests per `window` (here, per 15 minutes).
+	windowMs: 1 * 60 * 1000, // total windowms is 1 minutes
+	limit: 5, // limit is 10 requests per 15 minutes
 	message: 'Too many requests from this IP, please try again after 5 minutes',
 })
 
