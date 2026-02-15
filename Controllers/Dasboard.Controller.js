@@ -1,14 +1,8 @@
 import mongoose from "mongoose"
 
-const getChannelStats = async (req, res) => {
-    // TODO: Get the channel stats like total video views, total subscribers, total videos, total likes etc.
+export const getChannelStats = async (req, res) => {
 }
 
-const getChannelVideos = async (req, res) => {
-    // TODO: Get all the videos uploaded by the channel
-}
+export const getChannelVideos = async (req, res) => {
 
-export {
-    getChannelStats, 
-    getChannelVideos
 }
