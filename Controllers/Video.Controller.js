@@ -270,8 +270,8 @@ const updateVideo = async (req, res) => {
         if (!video) {
             return res.status(404).json({ message: "Video not found" });
         }
-        console.log(video.owner);
-        console.log("REQ USER:", req.user);
+        // console.log(video.owner);
+        // console.log("REQ USER:", req.user);
 
         if (!video.owner) {
            return res.status(400).json({ message: "Video owner not found" });
@@ -284,6 +284,9 @@ const updateVideo = async (req, res) => {
         let updatedThumbnail = video.thumbnail;
 
         const thumbnailLocalPath = req.file?.path;
+        // if (thumbnailLocalPath && !req.file.mimetype.startsWith("image/")) {
+        // return res.status(400).json({ message: "Invalid file type" });
+        // }
 
         if (thumbnailLocalPath) {
 

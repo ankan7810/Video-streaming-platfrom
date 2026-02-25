@@ -15,6 +15,7 @@ import cluster from "cluster";
 import os from "os";
 import process from "process";
 
+
 // dotenv.config({
 //     path:'./.env'
 // });
@@ -45,6 +46,7 @@ import process from "process";
 // app.listen(port,()=>{
 //     console.log(`Server is running on port ${port}`);
 // })
+
 
 dotenv.config({
     path: './.env'
@@ -81,6 +83,7 @@ connectdb();
 
 app.use(helmet());
 app.use(limiter);
+//express.json() middleware is used to parse the incoming request body as JSON.
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
 app.use(cookieParser());

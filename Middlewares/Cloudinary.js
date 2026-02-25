@@ -14,8 +14,8 @@ cloudinary.config({
 const uploadOnCloudinary = async (file) => {
     try {
         const ext = path.extname(file).toLowerCase();
-
         let options = {};
+        let optimizedUrl = null;
 
         if (ext === ".jpg" || ext === ".jpeg" || ext === ".png") {
             options.resource_type = "image";
@@ -30,8 +30,18 @@ const uploadOnCloudinary = async (file) => {
         const result = await cloudinary.uploader.upload(file, options);
 
         fs.unlinkSync(file);
+         if (resourceType === "image") {
+        const optimizedImageUrl = cloudinary.url(result.public_id, {
+        resource_type: "image",
+        fetch_format: "auto",
+        quality: "auto",
+        width: 800,
+        crop: "scale"
+      });
 
-        return result.secure_url;
+      return optimizedImageUrl;
+    }
+    return result.secure_url;
 
     } catch (error) {
         if (fs.existsSync(file)) {
