@@ -13,6 +13,9 @@ const Navbar = ({
   isAuthenticated,
   setIsAuthenticated,
 }) => {
+  // ✅ safely get user from localStorage
+  const storedUser = localStorage.getItem("user");
+  const user = storedUser ? JSON.parse(storedUser) : null;
   const [open, setOpen] = useState(false);
   const menuRef = useRef();
   const navigate = useNavigate();
@@ -31,14 +34,11 @@ const Navbar = ({
 
   const handleLogout = async () => {
     try {
-      await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/auth/logout`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
-
+      await fetch(`${import.meta.env.VITE_API_URL}/api/v1/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+      localStorage.removeItem("user");
       setIsAuthenticated(false);
       setOpen(false);
     } catch (error) {
@@ -48,7 +48,6 @@ const Navbar = ({
 
   return (
     <div className="flex items-center justify-between px-4 h-14 bg-black text-white fixed top-0 left-0 right-0 z-50">
-
       {/* LEFT SECTION */}
       <div className="flex items-center gap-4">
         <MenuIcon className="cursor-pointer" onClick={toggleSidebar} />
@@ -86,17 +85,17 @@ const Navbar = ({
       <div className="flex items-center gap-5 relative" ref={menuRef}>
         <VideoCallIcon className="cursor-pointer" />
         <NotificationsIcon className="cursor-pointer" />
-
         <img
-          src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+          src={
+            user?.profileimage ||
+            "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+          }
           alt="profile"
-          className="w-8 h-8 rounded-full cursor-pointer"
+          className="w-8 h-8 rounded-full cursor-pointer object-cover"
           onClick={() => setOpen(!open)}
         />
-
         {open && (
           <div className="absolute top-12 right-0 w-48 bg-[#212121] border border-[#333] rounded-lg shadow-lg py-2">
-
             <div
               className="px-4 py-2 hover:bg-[#333] cursor-pointer"
               onClick={() => {
@@ -126,7 +125,6 @@ const Navbar = ({
                 Logout
               </div>
             )}
-
           </div>
         )}
       </div>
