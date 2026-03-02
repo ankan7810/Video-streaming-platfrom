@@ -135,6 +135,7 @@ export const sendOtp = async (req, res) => {
   }
 }; 
 
+
 export const verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -152,6 +153,7 @@ export const verifyOtp = async (req, res) => {
   }
 };
 
+
 export const resetPassword = async (req, res) => {
   try {
     const { email, newPassword } = req.body;
@@ -162,6 +164,22 @@ export const resetPassword = async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
     user.isOtpVerified = false;
+    await user.save();
+    return res.status(200).json({ message: "password reset successfully" });
+  } catch (error) {
+    return res.status(500).json(`reset password error ${error}`);
+  }
+};
+
+export const changePassword = async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "User not found with this email" });
+    }
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
     await user.save();
     return res.status(200).json({ message: "password reset successfully" });
   } catch (error) {

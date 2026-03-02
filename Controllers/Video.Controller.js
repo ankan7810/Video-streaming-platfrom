@@ -270,9 +270,6 @@ const updateVideo = async (req, res) => {
         if (!video) {
             return res.status(404).json({ message: "Video not found" });
         }
-        // console.log(video.owner);
-        // console.log("REQ USER:", req.user);
-
         if (!video.owner) {
            return res.status(400).json({ message: "Video owner not found" });
         }
